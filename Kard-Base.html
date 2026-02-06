@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Fusion Card Standalone Component</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;400;600;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* ========== VARIÁVEIS GLOBAIS ========== */
+    :root {
+      --bg-gradient: linear-gradient(180deg,#000,#111);
+      --bg: var(--bg-gradient);
+      --text: #d7d7d7;
+      --neon-cyan: #00f2ff;
+      --neon-purple: #bd00ff;
+      --neon-gold: #ffd700;
+      --neon-danger: #ff2a6d;
+      --neon-success: #00ff9d;
+      
+      --font-ui: 'Montserrat', sans-serif;
+      --font-code: 'JetBrains Mono', monospace;
+
+      --glass-surface: rgba(18,18,22,0.65);
+      --glass-border: rgba(255,255,255,0.06);
+      
+      --ease-overshoot: cubic-bezier(0.34, 1.3, 0.64, 1);
+      --ease-smooth: cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    /* ========== RESET & BACKGROUND ========== */
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; user-select: none; }
+    body {
+      height: 100vh; margin: 0; overflow: hidden;
+      font-family: var(--font-ui); background: var(--bg); color: var(--text);
+      background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 52px 52px; background-position: center;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Ambient Blobs (Visual FX) */
+    .ambient-light { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.14; animation: float 25s infinite alternate ease-in-out; }
+    .blob-1 { width: 60vw; height: 60vw; background: var(--neon-cyan); top: -20%; left: -20%; }
+    .blob-2 { width: 50vw; height: 50vw; background: var(--neon-purple); bottom: -20%; right: -20%; animation-delay: -5s; }
+    @keyframes float { 0% { transform: translate(0,0); } 100% { transform: translate(40px,60px); } }
+    @keyframes gradientFlow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+    /* ========== SNAP ZONE (Drag Helper) ========== */
+    #snap-zone {
+      position: fixed; top: 0; left: 0; right: 0; height: 80px;
+      background: linear-gradient(to bottom, rgba(0, 242, 255, 0.25), transparent);
+      opacity: 0; pointer-events: none; transition: opacity 0.3s ease; z-index: 9000;
+      box-shadow: 0 0 40px rgba(0, 242, 255, 0.1);
+    }
+    #snap-zone.active { opacity: 1; }
+
+    /* ========== FUSION CARD (CORE) ========== */
+    .fusion-card {
+      /* Initial State: Center Screen */
+      position: absolute; /* Changed from fixed to allow initial centering via flex parent, JS will take over */
+      width: 100%; max-width: 440px;
+      max-height: 78vh; overflow-y: auto; overflow-x: hidden;
+      background: var(--glass-surface); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+      border: 1px solid var(--glass-border); border-radius: 36px; padding: 30px 25px;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+      display: flex; flex-direction: column; gap: 8px;
+      opacity: 0; transform: translateY(50px) scale(0.96); /* For entry animation */
+      transition: width 0.5s var(--ease-smooth), height 0.5s var(--ease-smooth), 
+                  border-radius 0.5s var(--ease-smooth), opacity 0.4s, 
+                  left 0.1s linear, top 0.1s linear, box-shadow 0.4s, transform 0.4s;
+      will-change: transform, left, top;
+      touch-action: none; /* Crucial for custom drag */
+      z-index: 100;
+    }
+    
+    /* Entry Animation Class */
+    .fusion-card.active { opacity: 1; transform: translateY(0) scale(1); }
+    .fusion-card::-webkit-scrollbar { display: none; }
+
+    /* --- CLOSED STATE --- */
+    .fusion-card.closed { width: 260px; padding: 14px 16px; border-radius: 22px; max-height: 80px; }
+    .fusion-card.closed .card-body { display: none; }
+
+    /* --- ORB STATE (Floating Ball) --- */
+    .fusion-card.orb {
+      position: fixed !important;
+      width: 68px !important; height: 68px !important;
+      padding: 0 !important; border-radius: 50% !important;
+      align-items: center; justify-content: center;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.6), 0 0 20px rgba(0,242,255,0.2);
+      z-index: 9999; cursor: grab; overflow: visible;
+    }
+    .fusion-card.orb:active { cursor: grabbing; transform: scale(0.95); }
+    .fusion-card.orb .text-block, .fusion-card.orb .clock-widget, 
+    .fusion-card.orb .card-body, .fusion-card.orb .small-preview { display: none !important; }
+    .fusion-card.orb .card-header { margin: 0; width: 100%; height: 100%; justify-content: center; padding: 0; }
+    .fusion-card.orb .avatar-slot { width: 54px; height: 54px; border-radius: 50%; margin: 0; opacity: 1; pointer-events: none; }
+    
+    /* Orb Context Menu Trigger */
+    .orb-menu-trigger {
+      position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%);
+      width: 24px; height: 24px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 50%; display: none; align-items: center; justify-content: center;
+      cursor: pointer; color: #fff; font-size: 12px; pointer-events: auto; backdrop-filter: blur(4px);
+    }
+    .fusion-card.orb:hover .orb-menu-trigger { display: flex; }
+
+    /* --- HUD STATE (Top Bar) --- */
+    .fusion-card.hud {
+      position: fixed !important; top: 0 !important; left: 50% !important;
+      transform: translateX(-50%) !important;
+      width: 96% !important; max-width: 600px !important; height: 64px !important;
+      padding: 0 16px !important; border-radius: 0 0 24px 24px !important;
+      flex-direction: row; align-items: center; justify-content: space-between;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.7); z-index: 9999; overflow: visible;
+      border-top: none; opacity: 0.95;
+    }
+    .fusion-card.hud .card-body, .fusion-card.hud .small-preview { display: none !important; }
+    .fusion-card.hud .card-header { margin: 0; width: 100%; justify-content: space-between; }
+    .fusion-card.hud .avatar-slot { width: 40px; height: 40px; }
+    .fusion-card.hud .brand-dual { font-size: 1.2rem; margin: 0; }
+    .fusion-card.hud .greeting-row { display: none; }
+    .fusion-card.hud .text-block { flex: unset; }
+
+    /* HUD Controls */
+    .drag-handle {
+      width: 60px; height: 5px; background: rgba(255,255,255,0.15); border-radius: 10px;
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      display: none; cursor: grab; pointer-events: none; transition: background 0.3s;
+    }
+    .fusion-card.hud:active .drag-handle { background: var(--neon-cyan); width: 70px; }
+    .fusion-card.hud .drag-handle { display: block; }
+    .hud-menu-btn { display: none; background: transparent; border: none; color: rgba(255,255,255,0.6); cursor: pointer; }
+    .fusion-card.hud .hud-menu-btn { display: block; }
+
+    /* ========== COMPONENTS INSIDE CARD ========== */
+    
+    /* Header */
+    .card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 18px; width: 100%; cursor: pointer; }
+    .avatar-slot { width: 64px; height: 64px; border-radius: 18px; overflow: hidden; background: #000; opacity: 0; transition: opacity 0.35s; display: flex; align-items: center; justify-content: center; }
+    .avatar-slot.shown { opacity: 1; }
+    .text-block { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .greeting-row { font-size: 1.5rem; line-height: 1; display: flex; align-items: baseline; gap: 6px; }
+    .txt-thin { font-weight: 200; color: rgba(255,255,255,0.7); }
+    .txt-heavy { font-weight: 600; color: #fff; }
+    
+    .brand-dual {
+      font-size: 2.2rem; font-weight: 900; line-height: 0.95; text-transform: uppercase; letter-spacing: -2px; margin-top: 4px;
+      background: linear-gradient(-45deg,#fff,var(--neon-cyan),var(--neon-purple),#fff);
+      background-size: 300%; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      animation: gradientFlow 4s ease infinite;
+    }
+    .clock-widget { text-align: right; }
+    .time-display { font-family: var(--font-code); font-size: 1rem; color: rgba(255,255,255,0.5); font-weight: 700; }
+    .status-led { font-size: 0.6rem; color: var(--neon-cyan); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; display: block; }
+
+    /* Small Preview (Collapsed) */
+    .small-preview {
+      display: none; align-items: center; gap: 10px; margin-top: 8px; padding: 8px 10px;
+      border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03);
+      font-family: var(--font-code); font-size: 0.86rem; color: rgba(255,255,255,0.9); cursor: pointer;
+    }
+    .fusion-card.closed:not(.orb):not(.hud) .small-preview { display: flex; }
+    .small-preview .mini-avatar { width: 30px; height: 30px; border-radius: 6px; flex-shrink: 0; }
+    .small-preview .small-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+    .small-preview .ident-badge { margin-left: auto; font-weight: 700; font-size: 0.78rem; padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,0.03); }
+
+    /* Card Body */
+    .card-body { display: flex; flex-direction: column; gap: 12px; }
+    .cyber-input {
+      width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 16px 18px; color: #fff; font-family: var(--font-code); font-size: 0.9rem;
+      user-select: text;
+    }
+
+    /* Accordions / Sections */
+    .activation-wrap { display: flex; flex-direction: column; gap: 8px; }
+    .activation-toggle { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px; cursor: pointer; opacity: 0.9; }
+    .activation-toggle:hover { opacity: 1; }
+    .activation-card {
+      background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.04);
+      padding: 12px; border-radius: 10px; overflow: hidden; transition: all 320ms var(--ease-smooth);
+    }
+    .activation-hidden { max-height: 0; opacity: 0; padding: 0 12px; pointer-events: none; margin-top: 0; border: none; }
+    .activation-open { max-height: 567px; opacity: 1; padding: 12px; margin-top: 4px; }
+    .activation-pre {
+      font-family: var(--font-code); white-space: pre-wrap; margin: 0; padding: 8px;
+      background: rgba(0,0,0,0.12); border-radius: 8px; border: 1px dashed rgba(255,255,255,0.03);
+      color: #fff; font-size: 0.75rem; user-select: text;
+    }
+
+    /* Buttons */
+    .trigger-btn {
+      width: 100%; padding: 12px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;
+      background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.5); font-size: 0.75rem;
+      letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+      display: flex; justify-content: center; align-items: center; gap: 8px; transition: 0.2s;
+    }
+    .trigger-btn:hover { background: rgba(255,255,255,0.04); color: #fff; border-color: rgba(255,255,255,0.3); }
+    .mode-btn { background: rgba(0,242,255,0.05); border-color: rgba(0,242,255,0.2); color: var(--neon-cyan); }
+    .mode-btn.active-mode { background: var(--neon-cyan); color: #000; box-shadow: 0 0 20px rgba(0,242,255,0.4); border-color: transparent; }
+
+    /* Form Elements inside sections */
+    .section-title { font-size: 0.7rem; font-weight: 700; color: rgba(255,255,255,0.4); margin-bottom: 4px; text-transform: uppercase; }
+    .form-input-sm { width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; }
+
+    /* ========== MODALS & TOASTS ========== */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: none;
+      align-items: center; justify-content: center; z-index: 99998; backdrop-filter: blur(8px);
+    }
+    .keys-card {
+      width: 90%; max-width: 400px; background: linear-gradient(180deg,#071018,#0b1220);
+      border: 1px solid rgba(255,255,255,0.08); padding: 20px; border-radius: 16px; color: #fff;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8); display: flex; flex-direction: column;
+    }
+    .small-btn {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+      padding: 6px 10px; border-radius: 8px; color: #fff; cursor: pointer; font-size: 0.75rem;
+    }
+    .small-btn.active-btn { background: var(--neon-success); color: #000; border: none; }
+    .small-btn.danger { color: var(--neon-danger); border-color: rgba(255,42,109,0.3); }
+    
+    .toaster-wrap { position: fixed; right: 20px; bottom: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toaster {
+      pointer-events: auto; background: #0b1220; border: 1px solid rgba(255,255,255,0.06);
+      padding: 10px 14px; border-radius: 10px; box-shadow: 0 18px 40px rgba(0,0,0,0.6);
+      font-size: 0.95rem; opacity: 0; transform: translateY(8px); transition: all 260ms var(--ease-smooth);
+    }
+    .toaster.show { opacity: 1; transform: translateY(0); }
+    .toaster.success { color: var(--neon-success); border-color: var(--neon-success); }
+    .toaster.error { color: var(--neon-danger); border-color: var(--neon-danger); }
+
+  </style>
+</head>
+<body>
+
+  <div class="ambient-light">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <div id="snap-zone"></div>
+
+  <div class="toaster-wrap" id="toasterWrap"></div>
+
+  <div class="fusion-card closed" id="mainCard">
+
+    <div class="card-header" id="cardHeader">
+      <div class="avatar-slot" id="avatarTarget" title="Gerenciar Chaves (Cofre)">
+        </div>
+      <div class="text-block">
+        <div class="greeting-row">
+          <span class="txt-thin" id="lblHello">Oi,</span>
+          <span class="txt-heavy" id="lblName">Convidado</span>
+        </div>
+        <div class="brand-dual">DUAL</div>
+      </div>
+      <div class="clock-widget">
+        <div class="time-display" id="clockTime">00:00</div>
+        <span class="status-led">ONLINE</span>
+      </div>
+      <button class="hud-menu-btn" id="hudMenuBtn" title="Menu Rápido"><i data-lucide="menu"></i></button>
+    </div>
+    
+    <div class="drag-handle"></div>
+
+    <div class="orb-menu-trigger" id="orbMenuTrigger" title="Menu Rápido">●●●</div>
+
+    <div class="small-preview" id="smallPreview" title="Expandir">
+      <div class="mini-avatar" id="smallMiniAvatar"></div>
+      <div class="small-text" id="smallText">Aguardando ativação...</div>
+      <div class="ident-badge" id="smallIdent">--</div>
+    </div>
+
+    <div class="card-body" id="cardBody">
+      
+      <div class="input-wrapper">
+        <input type="text" class="cyber-input" id="inputUser" placeholder="Identifique-se..." autocomplete="off">
+      </div>
+
+      <div class="activation-wrap">
+        <div class="activation-toggle" onclick="toggleSection('activationCard')">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:10px;height:10px;border-radius:99px;background:var(--neon-cyan)"></div>
+            <strong style="letter-spacing:1px;font-size:0.9rem">Ativação ASCII</strong>
+          </div>
+          <div style="margin-left:auto;font-size:0.82rem;color:rgba(255,255,255,0.6)">BASE v1</div>
+        </div>
+        <div id="activationCard" class="activation-card activation-hidden">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="mini-avatar" id="actMiniAvatar"></div>
+              <div><div style="font-weight:700">CÉREBRO</div><div style="font-size:0.78rem;opacity:0.6"><span id="actName">User</span></div></div>
+            </div>
+            <div id="actBadge" style="margin-left:auto; font-size:0.75rem; color:var(--neon-cyan)">v:--</div>
+          </div>
+          <pre id="actPre" class="activation-pre">Carregando...</pre>
+          <button class="trigger-btn" onclick="copyActivation()">COPIAR</button>
+        </div>
+      </div>
+
+      <div class="activation-wrap">
+          <div class="activation-toggle" onclick="toggleSection('systemCard')">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="width:10px;height:10px;border-radius:99px;background:var(--neon-purple)"></div>
+                <strong style="letter-spacing:1px;font-size:0.9rem">SYSTEM & NEURAL</strong>
+              </div>
+              <div style="margin-left:auto;font-size:0.82rem;color:rgba(255,255,255,0.6)">CONFIG</div>
+          </div>
+          <div id="systemCard" class="activation-card activation-hidden">
+             <div class="section-title">IDENTIDADE</div>
+             <input type="text" class="form-input-sm" id="infodoseNameInput" placeholder="Nome do Sistema...">
+             
+             <div class="section-title" style="margin-top:8px">CONEXÃO NEURAL (API)</div>
+             <input type="password" class="form-input-sm" id="apiKeyInput" placeholder="sk-..." autocomplete="off">
+             
+             <div class="section-title">MODELO</div>
+             <select id="modelSelect" class="form-input-sm" style="cursor:pointer">
+               <option value="nvidia/nemotron-3-nano-30b-a3b:free">NemoTron (Default)</option>
+               <option value="allenai/molmo-2-8b:free">MolMo</option>
+               <option value="openai/gpt-oss-120b:free">OSS120b</option>
+             </select>
+
+             <button id="saveSystemBtn" class="trigger-btn" style="margin-top:12px;background:var(--neon-cyan);color:#000;border:none;font-weight:700">SALVAR CONFIGURAÇÃO</button>
+          </div>
+      </div>
+
+      <div style="margin-top:4px">
+          <div class="section-title" style="margin-bottom:6px; text-align:center">INTERFACE MODE</div>
+          <div style="display:flex; gap:8px;">
+              <button class="trigger-btn mode-btn active-mode" id="btnModeCard" onclick="setMode('card')" title="Padrão">CARD</button>
+              <button class="trigger-btn mode-btn" id="btnModeOrb" onclick="setMode('orb')" title="Flutuante">ORB</button>
+              <button class="trigger-btn mode-btn" id="btnModeHud" onclick="setMode('hud')" title="Barra Superior">HUD</button>
+          </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="vaultModal" class="modal-overlay">
+    <div class="keys-card">
+      <div style="text-align:center;margin-bottom:15px">
+          <i data-lucide="lock" style="color:var(--neon-purple);width:40px;height:40px"></i>
+      </div>
+      <h3 style="margin:0 0 10px 0;font-weight:800;text-align:center">ACESSO AO COFRE</h3>
+      <p style="margin:0 0 15px 0;font-size:0.9rem;color:rgba(255,255,255,0.6);text-align:center">
+          Digite a senha para gerenciar suas chaves API.
+      </p>
+      <input type="password" class="cyber-input" style="text-align:center;margin-bottom:12px" placeholder="Senha...">
+      <div style="display:flex;gap:8px;justify-content:center">
+         <button class="small-btn" onclick="document.getElementById('vaultModal').style.display='none'">Cancelar</button>
+         <button class="small-btn active-btn" onclick="unlockVault()">DESBLOQUEAR</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ========== LOGIC CORE ========== */
+    
+    // UI References
+    const els = {
+      card: document.getElementById('mainCard'),
+      header: document.getElementById('cardHeader'),
+      avatar: document.getElementById('avatarTarget'),
+      input: document.getElementById('inputUser'),
+      snapZone: document.getElementById('snap-zone'),
+      btnCard: document.getElementById('btnModeCard'),
+      btnOrb: document.getElementById('btnModeOrb'),
+      btnHud: document.getElementById('btnModeHud'),
+      systemCard: document.getElementById('systemCard'),
+      actCard: document.getElementById('activationCard'),
+      // Text Elements
+      lblName: document.getElementById('lblName'),
+      actName: document.getElementById('actName'),
+      actPre: document.getElementById('actPre'),
+      clock: document.getElementById('clockTime'),
+      smallText: document.getElementById('smallText'),
+      smallMiniAvatar: document.getElementById('smallMiniAvatar'),
+      actMiniAvatar: document.getElementById('actMiniAvatar'),
+      // Triggers
+      orbTrigger: document.getElementById('orbMenuTrigger'),
+      hudTrigger: document.getElementById('hudMenuBtn')
+    };
+
+    // State
+    let state = {
+      isOrb: false,
+      isHud: false,
+      isDragging: false,
+      startX: 0, startY: 0,
+      dragOffsetX: 0, dragOffsetY: 0,
+      timer: null,
+      pointerId: null
+    };
+
+    // Helpers: Graphics
+    const hashStr = s => { let h=0xdeadbeef; for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),2654435761);} return (h^h>>>16)>>>0; };
+    const createSvg = (id,sz) => `<svg viewBox="0 0 100 100" width="${sz}" height="${sz}"><defs><linearGradient id="g${id}"><stop offset="0%" stop-color="#00f2ff"/><stop offset="100%" stop-color="#bd00ff"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="#080b12" stroke="rgba(255,255,255,0.1)"/><circle cx="50" cy="50" r="20" fill="url(#g${id})" opacity="0.9"/></svg>`;
+    const createMiniSvg = (name,sz=30) => {
+      const s = hashStr(name||'D'); const h1=s%360; const h2=(s*37)%360;
+      const grad = `<linearGradient id="gm${s}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${h1},90%,50%)"/><stop offset="1" stop-color="hsl(${h2},90%,50%)"/></linearGradient>`;
+      return `<svg width="${sz}" height="${sz}" viewBox="0 0 32 32"><defs>${grad}</defs><rect width="32" height="32" rx="8" fill="#0a1016"/><circle cx="16" cy="16" r="6" fill="url(#gm${s})"/></svg>`;
+    };
+
+    // --- INITIALIZATION ---
+    function init() {
+        lucide.createIcons();
+        els.card.classList.add('active'); // Fade in
+        els.avatar.innerHTML = createSvg('Main', 64);
+        els.avatar.classList.add('shown');
+        updateInterface('Convidado');
+
+        // Restore State from LocalStorage
+        const savedUI = JSON.parse(localStorage.getItem('fusion_ui_state') || '{}');
+        if (savedUI.mode === 'orb') {
+            els.card.style.transition = 'none';
+            if(savedUI.left) els.card.style.left = savedUI.left;
+            if(savedUI.top) els.card.style.top = savedUI.top;
+            setMode('orb', true);
+            setTimeout(() => els.card.style.transition = '', 200);
+        } else if (savedUI.mode === 'hud') {
+            setMode('hud', true);
+        }
+
+        // Clock
+        setInterval(() => {
+            els.clock.innerText = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+        }, 1000);
+    }
+
+    // --- INTERFACE UPDATES ---
+    function updateInterface(name) {
+        const safe = name || 'Convidado';
+        els.lblName.innerText = safe;
+        els.actName.innerText = safe;
+        els.smallText.innerText = safe === 'Convidado' ? 'Aguardando...' : `${safe} · Conectado`;
+        
+        // Generate Ident Graphics
+        const mini = createMiniSvg(safe, 30);
+        els.smallMiniAvatar.innerHTML = mini;
+        els.actMiniAvatar.innerHTML = createMiniSvg(safe, 36);
+        
+        // Update ASCII
+        const line = `+${'-'.repeat(safe.length+4)}+`;
+        els.actPre.innerText = `${line}\n| ${safe.toUpperCase()} |\n${line}\nID: ${hashStr(safe).toString(16).toUpperCase()}`;
+    }
+
+    els.input.addEventListener('input', (e) => updateInterface(e.target.value));
+
+    // --- DRAG & PHYSICS SYSTEM ---
+    const LONG_PRESS_MS = 350;
+    const HUD_SNAP_THRESHOLD = 60;
+    const SWIPE_DOWN_THRESHOLD = 80;
+
+    els.card.addEventListener('pointerdown', handleStart);
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleEnd);
+
+    // Prevent context menu on card to allow right-click reset
+    els.card.addEventListener('contextmenu', (e) => {
+        if(state.isOrb || state.isHud) { e.preventDefault(); setMode('card'); }
+    });
+
+    function handleStart(e) {
+        // Ignore inputs/buttons
+        if(['INPUT','BUTTON','TEXTAREA','SELECT'].includes(e.target.tagName) && !e.target.closest('.orb-menu-trigger')) return;
+        // Only drag from Header in Card mode
+        if(!state.isOrb && !state.isHud && !els.header.contains(e.target)) return;
+
+        state.startX = e.clientX;
+        state.startY = e.clientY;
+        state.pointerId = e.pointerId;
+
+        if(state.isOrb || state.isHud) {
+            state.isDragging = true;
+            try { els.card.setPointerCapture(e.pointerId); } catch(e){}
+            const rect = els.card.getBoundingClientRect();
+            state.dragOffsetX = e.clientX - rect.left;
+            state.dragOffsetY = e.clientY - rect.top;
+            els.card.style.transition = 'none'; // Disable transition for instant drag
+        } else {
+            // Card Mode: Wait for Long Press to convert to Orb
+            state.timer = setTimeout(() => transmuteToOrb(e), LONG_PRESS_MS);
+        }
+    }
+
+    function handleMove(e) {
+        // Check for Swipe Up in Card mode to trigger Orb early
+        if (!state.isOrb && !state.isHud && state.timer) {
+             const dy = e.clientY - state.startY;
+             const dx = e.clientX - state.startX;
+             // If moved significantly while holding...
+             if (Math.hypot(dx, dy) > 15) {
+                 clearTimeout(state.timer); state.timer = null;
+                 // If moved UP or Side, transmute
+                 if (dy < -10 || Math.abs(dx) > 15) {
+                     transmuteToOrb(e);
+                     // Recalc offset to prevent jumping
+                     const rect = els.card.getBoundingClientRect();
+                     state.dragOffsetX = e.clientX - rect.left;
+                     state.dragOffsetY = e.clientY - rect.top;
+                     try { els.card.setPointerCapture(e.pointerId); } catch(e){}
+                     els.card.style.transition = 'none';
+                 }
+             }
+        }
+
+        if(!state.isDragging) return;
+        e.preventDefault();
+
+        if(state.isOrb) {
+            const x = e.clientX - state.dragOffsetX;
+            const y = e.clientY - state.dragOffsetY;
+            els.card.style.left = `${x}px`;
+            els.card.style.top = `${y}px`;
+            
+            // Show Snap Zone if near top
+            if(y < HUD_SNAP_THRESHOLD) els.snapZone.classList.add('active');
+            else els.snapZone.classList.remove('active');
+        } 
+        else if (state.isHud) {
+            // Pull down logic
+            const deltaY = e.clientY - state.startY;
+            if(deltaY > 0) {
+                els.card.style.transform = `translateX(-50%) translateY(${deltaY * 0.4}px)`; // Resistive pull
+                if(deltaY > SWIPE_DOWN_THRESHOLD) els.snapZone.classList.add('active');
+            }
+        }
+    }
+
+    function handleEnd(e) {
+        if(state.timer) { clearTimeout(state.timer); state.timer = null; }
+        
+        if(state.isDragging) {
+            state.isDragging = false;
+            try { els.card.releasePointerCapture(state.pointerId); } catch(e){}
+            els.card.style.transition = ''; // Restore animation
+            els.snapZone.classList.remove('active');
+
+            if(state.isOrb) {
+                const rect = els.card.getBoundingClientRect();
+                // Snap to HUD if dropped at top
+                if(rect.top < HUD_SNAP_THRESHOLD) setMode('hud');
+                else saveState();
+            } else if (state.isHud) {
+                const deltaY = e.clientY - state.startY;
+                // Snap to Orb if pulled down enough
+                if (deltaY > SWIPE_DOWN_THRESHOLD) {
+                    const x = e.clientX - 34; // Center on cursor roughly
+                    const y = e.clientY - 10;
+                    els.card.style.left = `${x}px`;
+                    els.card.style.top = `${y}px`;
+                    setMode('orb');
+                } else {
+                    // Bounce back
+                    els.card.style.transform = `translateX(-50%) translateY(0)`;
+                }
+            }
+        } else {
+            // Click without drag
+            if(!state.isOrb && !state.isHud && els.header.contains(e.target)) {
+                toggleCardCollapse();
+            }
+        }
+    }
+
+    function transmuteToOrb(e) {
+        if(navigator.vibrate) navigator.vibrate(50);
+        state.isDragging = true;
+        
+        // Visual Transformation
+        els.card.classList.add('orb', 'closed');
+        state.isOrb = true; state.isHud = false;
+        
+        // Position immediately at cursor
+        const x = e.clientX - 34; 
+        const y = e.clientY - 34;
+        els.card.style.left = `${x}px`;
+        els.card.style.top = `${y}px`;
+        
+        updateModeButtons('orb');
+    }
+
+    // --- MODE SWITCHING ---
+    window.setMode = (mode, silent=false) => {
+        updateModeButtons(mode);
+        state.isOrb = (mode === 'orb');
+        state.isHud = (mode === 'hud');
+
+        if (mode === 'card') {
+            // Reset Styles
+            els.card.style.left = ''; els.card.style.top = ''; 
+            els.card.style.transform = '';
+            els.card.classList.remove('orb', 'hud', 'closed');
+        } 
+        else if (mode === 'orb') {
+            els.card.classList.add('orb', 'closed');
+            els.card.classList.remove('hud');
+            els.card.style.transform = 'none';
+        } 
+        else if (mode === 'hud') {
+            els.card.classList.add('hud', 'closed');
+            els.card.classList.remove('orb');
+            els.card.style.left = ''; els.card.style.top = ''; 
+            els.card.style.transform = '';
+        }
+        if(!silent) saveState();
+    };
+
+    function updateModeButtons(mode) {
+        [els.btnCard, els.btnOrb, els.btnHud].forEach(b => b.classList.remove('active-mode'));
+        if(mode === 'card') els.btnCard.classList.add('active-mode');
+        if(mode === 'orb') els.btnOrb.classList.add('active-mode');
+        if(mode === 'hud') els.btnHud.classList.add('active-mode');
+    }
+
+    function toggleCardCollapse() {
+        if(els.card.classList.contains('closed')) {
+            els.card.classList.remove('closed');
+        } else {
+            els.card.classList.add('closed');
+        }
+    }
+
+    // --- UTILS & TOASTS ---
+    window.toggleSection = (id) => {
+        const el = document.getElementById(id);
+        if(el.classList.contains('activation-hidden')) {
+            el.classList.remove('activation-hidden'); el.classList.add('activation-open');
+        } else {
+            el.classList.add('activation-hidden'); el.classList.remove('activation-open');
+        }
+    };
+
+    window.copyActivation = () => {
+        navigator.clipboard.writeText(els.actPre.innerText);
+        showToaster('Ativação copiada!', 'success');
+    };
+
+    window.unlockVault = () => {
+        document.getElementById('vaultModal').style.display = 'none';
+        showToaster('Cofre Desbloqueado (Simulação)', 'success');
+    };
+
+    els.avatar.addEventListener('click', () => {
+        if(!state.isOrb && !state.isHud) document.getElementById('vaultModal').style.display = 'flex';
+    });
+
+    els.orbTrigger.addEventListener('click', (e) => { e.stopPropagation(); setMode('card'); toggleSection('systemCard'); });
+    els.hudTrigger.addEventListener('click', (e) => { e.stopPropagation(); setMode('card'); toggleSection('systemCard'); });
+
+    function showToaster(txt, type='default') {
+        const t = document.createElement('div'); t.className = `toaster ${type}`; t.innerText = txt;
+        document.getElementById('toasterWrap').appendChild(t);
+        setTimeout(() => t.classList.add('show'), 10);
+        setTimeout(() => { t.classList.remove('show'); setTimeout(()=>t.remove(), 300); }, 2500);
+    }
+
+    function saveState() {
+        const ui = {
+            mode: state.isOrb ? 'orb' : (state.isHud ? 'hud' : 'card'),
+            left: els.card.style.left,
+            top: els.card.style.top
+        };
+        localStorage.setItem('fusion_ui_state', JSON.stringify(ui));
+    }
+
+    // --- SAVE CONFIG BUTTON ---
+    document.getElementById('saveSystemBtn').addEventListener('click', () => {
+        showToaster('Configuração salva!', 'success');
+        toggleSection('systemCard');
+    });
+
+    // Run
+    init();
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>DUAL // FUSION OS — V2 Connected</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#05070a">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js')
+        .then(() => console.log('Service Worker Registered'));
+    }
+  </script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;400;600;900&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+
+  <style>
+    /* --- FUSION OS STYLES (CARD & VAULT) --- */
+    :root{
+      --bg-deep:#030406; --glass-surface:rgba(18,18,22,0.65); --glass-border:rgba(255,255,255,0.06);
+      --neon-cyan:#00f2ff; --neon-purple:#bd00ff; --neon-gold:#ffd700; --neon-danger:#ff2a6d; --neon-success:#00ff9d;
+      --font-ui:'Montserrat',sans-serif; --font-code:'JetBrains Mono',monospace;
+      --ease-overshoot: cubic-bezier(0.34, 1.3, 0.64, 1);
+      --ease-smooth: cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;outline:none;user-select:none}
+    .activation-pre, .cyber-input, input, textarea, .toaster, .response-block p { user-select:text !important; -webkit-user-select:text !important; }
+    
+    body{margin:0;padding:0;min-height:100vh;background-color:var(--bg-deep);color:#fff;
+      font-family:var(--font-ui);overflow:hidden;
+      background-image:linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size:50px 50px;
+    }
+
+    /* Ambient Light */
+    .ambient-light{position:fixed;inset:0;z-index:0;pointer-events:none}
+    .blob{position:absolute;border-radius:50%;filter:blur(100px);opacity:0.14;animation:float 25s infinite alternate ease-in-out}
+    .blob-1{width:60vw;height:60vw;background:var(--neon-cyan);top:-20%;left:-20%}
+    .blob-2{width:50vw;height:50vw;background:var(--neon-purple);bottom:-20%;right:-20%;animation-delay:-5s}
+    @keyframes float{0%{transform:translate(0,0)}100%{transform:translate(40px,60px)}}
+
+    /* Container Central */
+    .container{
+      position: absolute; inset:0; pointer-events:none;
+      display:flex; align-items:center; justify-content:center; perspective:1200px; z-index:10;
+    }
+
+    /* O Card Principal */
+    .fusion-card{
+      pointer-events:auto;
+      width:100%; max-width:440px;
+      background:var(--glass-surface); backdrop-filter:blur(30px); -webkit-backdrop-filter:blur(30px);
+      border:1px solid var(--glass-border); border-radius:36px; padding:30px 25px;
+      box-shadow:0 40px 100px rgba(0,0,0,0.8);
+      position:relative; opacity:0; transform:translateY(50px) scale(0.96);
+      display:flex; flex-direction:column; gap:8px;
+      transition: width 0.5s var(--ease-smooth), height 0.5s var(--ease-smooth), border-radius 0.5s var(--ease-smooth), transform 0.4s var(--ease-smooth), opacity 0.4s;
+      will-change: transform, width, height, border-radius, left, top;
+      touch-action: none; 
+    }
+    .fusion-card.active{opacity:1;transform:translateY(0) scale(1);}
+    
+    /* Estado CLOSED */
+    .fusion-card.closed{width:260px; padding:14px 16px; border-radius:22px;} 
+    .fusion-card.closed .card-body{display:none}
+    
+    /* ESTADO: ORB */
+    .fusion-card.orb {
+      position: fixed !important;
+      width: 68px !important; height: 68px !important;
+      padding: 0 !important; border-radius: 50% !important;
+      align-items: center; justify-content: center;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.6), 0 0 20px rgba(0,242,255,0.2);
+      z-index: 9999;
+      cursor: grab;
+    }
+    .fusion-card.orb:active { cursor: grabbing; transform: scale(0.9); }
+    .fusion-card.orb .text-block, .fusion-card.orb .clock-widget, .fusion-card.orb .card-body, .fusion-card.orb .small-preview { display: none !important; }
+    .fusion-card.orb .card-header { margin: 0; width: 100%; height: 100%; justify-content: center; padding:0; }
+    .fusion-card.orb .avatar-slot { width: 54px; height: 54px; border-radius: 50%; margin:0; opacity: 1; pointer-events: none; }
+
+    /* ESTADO: HUD */
+    .fusion-card.hud {
+      position: fixed !important; top: 12px !important; left: 50% !important;
+      transform: translateX(-50%) !important;
+      width: 92% !important; max-width: 600px !important; height: 64px !important;
+      padding: 0 16px !important; border-radius: 99px !important;
+      flex-direction: row; align-items: center; justify-content: space-between;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 9999;
+    }
+    .fusion-card.hud .card-body, .fusion-card.hud .small-preview { display: none !important; }
+    .fusion-card.hud .card-header { margin: 0; width: 100%; justify-content: space-between; }
+    .fusion-card.hud .avatar-slot { width: 40px; height: 40px; }
+    .fusion-card.hud .brand-dual { font-size: 1.2rem; margin:0; }
+    .fusion-card.hud .greeting-row { display:none; } 
+    .fusion-card.hud .text-block { flex: unset; }
+
+    /* Internals */
+    .card-header{display:flex;align-items:center;gap:15px;margin-bottom:18px; width:100%; cursor: pointer;}
+    .avatar-slot{width:64px;height:64px;border-radius:18px;overflow:hidden;opacity:0;transition:opacity 0.35s}
+    .avatar-slot.shown{opacity:1}
+    
+    .text-block{flex:1;display:flex;flex-direction:column;justify-content:center}
+    .greeting-row{font-size:1.5rem;line-height:1;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+    .txt-thin{font-weight:200;color:rgba(255,255,255,0.7)}
+    .txt-heavy{font-weight:600;color:#fff}
+    
+    .brand-dual{font-size:2.2rem;font-weight:900;line-height:0.95;text-transform:uppercase;letter-spacing:-2px;margin-top:4px;
+      background:linear-gradient(-45deg,#fff,var(--neon-cyan),var(--neon-purple),#fff);background-size:300%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gradientFlow 4s ease infinite;
+    }
+    @keyframes gradientFlow{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+    .clock-widget{text-align:right}
+    .time-display{font-family:var(--font-code);font-size:1rem;color:rgba(255,255,255,0.5);font-weight:700}
+    .status-led{font-size:0.6rem;color:var(--neon-cyan);text-transform:uppercase;letter-spacing:1px;margin-top:4px;display:block}
+
+    /* Small Preview */
+    .small-preview{display:none;align-items:center;gap:10px;margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03);font-family:var(--font-code);font-size:0.86rem;color:rgba(255,255,255,0.9);cursor:pointer;}
+    .small-preview .mini-avatar{width:30px;height:30px;border-radius:6px;flex-shrink:0;overflow:hidden;display:inline-flex;align-items:center;justify-content:center}
+    .small-preview .small-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 110px)}
+    .small-preview .ident-badge{margin-left:auto;font-weight:700;font-size:0.78rem;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.9);border:1px solid rgba(255,255,255,0.02)}
+    .fusion-card.closed:not(.orb):not(.hud) .small-preview{display:flex}
+    
+    .card-body{display:flex;flex-direction:column;gap:12px}
+    .stagger-item{opacity:0;transform:translateY(15px);transition:opacity 0.4s ease, transform 0.4s var(--ease-overshoot)}
+    .content-visible .stagger-item{opacity:1;transform:translateY(0)}
+    .content-visible .stagger-item:nth-child(1){transition-delay:0.1s}
+    .content-visible .stagger-item:nth-child(2){transition-delay:0.18s}
+    .content-visible .stagger-item:nth-child(3){transition-delay:0.25s}
+
+    .cyber-input{width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:16px 50px 16px 18px;color:#fff;font-family:var(--font-code);font-size:0.9rem}
+    
+    .activation-wrap{display:flex;flex-direction:column;gap:8px}
+    .activation-card{background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.04);padding:12px;border-radius:10px;overflow:hidden;transition:all 320ms var(--ease-smooth)}
+    .activation-pre{font-family:var(--font-code);white-space:pre-wrap;margin:0;padding:8px;background:rgba(0,0,0,0.12);border-radius:8px;border:1px dashed rgba(255,255,255,0.03);color:#fff;font-size:0.75rem}
+    .activation-hidden{max-height:0;opacity:0;padding:0 12px;pointer-events:none}
+    .activation-open{max-height:400px;opacity:1;padding:12px}
+    
+    .trigger-btn{width:100%;padding:12px;border:1px dashed rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.5);font-size:0.75rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;display:flex;justify-content:center;align-items:center;gap:8px}
+    .trigger-btn:hover{background:rgba(255,255,255,0.04);color:#fff;border-color:rgba(255,255,255,0.3)}
+
+    .stats-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+    .stat-box{background:rgba(255,255,255,0.03);border-radius:12px;padding:10px;text-align:center}
+    .stat-lbl{font-size:0.55rem;text-transform:uppercase;color:rgba(255,255,255,0.4);display:block;margin-bottom:4px}
+    .stat-val{font-family:var(--font-code);font-size:0.9rem;font-weight:700;color:var(--neon-cyan)}
+
+    .progress-container{background:rgba(0,0,0,0.2);padding:12px;border-radius:12px}
+    .bar-track{height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;margin:8px 0}
+    .bar-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));box-shadow:0 0 10px var(--neon-cyan);transition:width 1.2s ease-out}
+    .bar-meta{display:flex;justify-content:space-between;font-size:0.6rem;color:rgba(255,255,255,0.4);font-family:var(--font-code)}
+
+    .toaster-wrap{position:fixed;right:20px;bottom:20px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+    .toaster{pointer-events:auto;background:linear-gradient(180deg,#0b1220,#071018);border:1px solid rgba(255,255,255,0.06);padding:10px 14px;border-radius:10px;box-shadow:0 18px 40px rgba(0,0,0,0.6);font-family:var(--font-ui);font-size:0.95rem;opacity:0;transform:translateY(8px);transition:all 260ms var(--ease-smooth)}
+    .toaster.show{opacity:1;transform:translateY(0)}
+    .toaster.error{border-color:var(--neon-danger);color:var(--neon-danger)}
+    .toaster.success{border-color:var(--neon-success);color:var(--neon-success)}
+
+    /* Keys Modal styles */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;align-items:center;justify-content:center;z-index:99998;backdrop-filter:blur(8px)}
+    .keys-card{width:90%;max-width:760px;background:linear-gradient(180deg,#071018,#0b1220);border:1px solid rgba(255,255,255,0.08);padding:20px;border-radius:16px;color:#fff;box-shadow:0 20px 50px rgba(0,0,0,0.8);max-height:90vh;display:flex;flex-direction:column}
+    .keys-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.05)}
+    .key-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:6px;min-height:100px}
+    .key-item{display:flex;align-items:center;gap:8px;padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.02)}
+    .key-item.active-item{background:rgba(0, 242, 255, 0.05);border-color:rgba(0, 242, 255, 0.2)}
+    .key-item .meta{flex:1}
+    .small-btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);padding:6px 10px;border-radius:8px;color:#fff;cursor:pointer;font-size:0.75rem;text-transform:uppercase;font-weight:600;transition:0.2s}
+    .small-btn:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.2)}
+    .small-btn.active-btn{background:var(--neon-success);color:#000;border:none}
+    .danger{color:var(--neon-danger);border-color:rgba(255,42,109,0.3)}
+    .danger:hover{background:rgba(255,42,109,0.1)}
+
+    .form-section{margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.05)}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+    .form-row{display:flex;gap:8px;}
+    .form-row input, .form-grid input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#030406;color:#fff;font-family:var(--font-code);font-size:0.85rem}
+    .form-row input:focus, .form-grid input:focus{border-color:var(--neon-cyan)}
+
+    /* Vault Modal */
+    #vaultModal .keys-card{max-width:400px;text-align:center}
+    .vault-icon{width:50px;height:50px;margin:0 auto 15px;color:var(--neon-purple);background:rgba(189,0,255,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center}
+
+    /* --- CHAT STYLES --- */
+    #particles-js{position:absolute;inset:0;z-index:0}
+    .svg-container{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%);width:160px;height:160px;z-index:1}
+    .svg-container object{width:100%;height:100%}
+
+    .top-info {
+      position: fixed; top: 18px; left: 20px; z-index: 3;
+      background: rgba(0,0,0,0.35); padding: 8px 12px; border-radius: 12px; font-size: 0.9em;
+      backdrop-filter: blur(6px);
+      pointer-events: none; /* Let clicks pass if under header */
+    }
+
+    .response-container{
+      position:fixed; left:20px; right:20px; bottom:160px;
+      padding:12px;background:rgba(0,0,0,0.4);backdrop-filter:blur(10px);
+      border-radius:20px; max-height:calc(100vh - 220px); overflow-y:auto; -webkit-overflow-scrolling:touch; z-index:1;
+    }
+    .page{display:none; opacity:0; transition:opacity 0.8s ease-in-out}
+    .page.active{display:block; opacity:1}
+    .page.initial{text-align:center;font-size:1.1em}
+    .response-controls{display:flex;justify-content:space-between;align-items:center;margin-top:15px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.2)}
+    .control-buttons{display:flex;gap:10px;align-items:center}
+    .control-btn{background:rgba(255,255,255,0.05);padding:6px;border-radius:6px;cursor:pointer;transition:background 0.4s;display:flex;gap:6px;border:none;outline:none}
+    .control-btn:hover{background:rgba(255,255,255,0.12)}
+    .control-btn svg{stroke:rgba(255,255,255,0.5);fill:none}
+    .toggle-button svg{color:#fff;stroke:rgba(255,255,255,0.3);fill:none}
+    .toggle-button svg circle:nth-child(2){fill: currentColor}
+    .toggle-button.active svg{color:#0f0}
+    .pagination{display:flex;align-items:center;gap:10px}
+    .pagination button{background:none;border:none;font-size:1.2em;color:#6fe4fb;cursor:pointer;transition:transform 0.4s}
+    .pagination button:hover{transform:scale(1.2)}
+    
+    .response-block{
+      margin:1rem 0;padding:1.2rem;border-radius:12px;
+      animation:fadeIn 1.8s ease forwards; transition:box-shadow 0.4s,transform 0.4s;
+      line-height:1.5;position:relative;cursor:pointer;overflow:hidden;animation:pulse 6s infinite ease-in-out;
+      background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(0,0,0,0.25));
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+    .response-block h3{margin-bottom:12px}
+    .response-block:hover{box-shadow:0 0 15px rgba(0,255,255,0.12)}
+    .response-block .meta { position:absolute; top:8px; right:8px; display:flex; gap:6px; }
+    .crystal-btn {
+      background: rgba(0,0,0,0.25); border-radius:6px; padding:6px; cursor:pointer; border:none; color:var(--neon-cyan);
+    }
+    .response-block.clicked{animation:clickPulse 0.8s ease-out}
+    .response-block.expanded{transform:scale(1.03); background:rgba(0,0,0,0.6); z-index:2}
+    .intro{background:linear-gradient(135deg,rgba(0,255,255,0.08),rgba(0,100,100,0.04));border-left:4px solid #0ff}
+    .middle{background:linear-gradient(135deg,rgba(255,255,255,0.02),rgba(50,50,50,0.06));border-left:4px solid rgba(255,255,255,0.2)}
+    .ending{background:linear-gradient(135deg,rgba(255,0,255,0.06),rgba(100,0,100,0.04));border-left:4px solid #f0f}
+    .footer-text{margin-top:12px;font-size:0.8em;text-align:center;font-style:italic}
+
+    .input-container{position:fixed;left:20px;right:20px;bottom:90px;display:flex;gap:10px;z-index:2;max-width:calc(100% - 40px)}
+    .input-container input{flex:1;padding:10px;border:none;border-radius:20px;background:rgba(255,255,255,0.1);color:inherit;outline:none;font-size:16px;transition:background 0.4s}
+    .input-container input:focus{background:rgba(255,255,255,0.2)}
+    .input-container button{width:60px;height:60px;border:none;border-radius:50%;background:linear-gradient(45deg,#111,#5e5c5e);color:#fff;font-size:1.5em;cursor:pointer;display:flex;justify-content:center;align-items:center;animation:pulse 2s infinite ease-in-out;transition:transform 0.4s}
+    .input-container button:hover{transform:scale(1.1)}
+
+    /* Generic Modal / Panel */
+    .modal, .panel { position: fixed; inset: 0; display: none; z-index: 9998; justify-content:center; align-items:center; }
+    .modal.active, .panel.active { display:flex }
+    .box {
+      background:#1a1a1a;padding:20px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);
+      width:90%;max-width:520px;box-shadow:0 8px 40px rgba(0,0,0,0.6); color:#fff;
+    }
+    .box h3{color:var(--neon-cyan);margin-bottom:8px}
+    .row{display:flex;gap:10px;align-items:center}
+    .col{display:flex;flex-direction:column;gap:8px}
+    .input-group label{font-size:0.85em;color:#aaa;margin-left:4px}
+    .input-group input[type="text"], .input-group input[type="password"], .input-group input[type="file"]{
+      width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.5);color:#fff;outline:none;
+    }
+    .settings-actions{display:flex;gap:10px;margin-top:12px}
+    .btn{padding:10px;border-radius:8px;border:none;cursor:pointer;font-weight:600}
+    .btn-prim{background:var(--neon-cyan);color:#000}
+    .btn-sec{background:rgba(255,255,255,0.08);color:#fff}
+    .small {font-size:0.85em;color:#bbb}
+    .crystal-list { max-height:300px; overflow:auto; display:flex; flex-direction:column; gap:8px }
+    .crystal-item { background: rgba(255,255,255,0.02); padding:8px; border-radius:8px; display:flex; justify-content:space-between; gap:8px; align-items:flex-start }
+    .crystal-item .actions { display:flex; gap:6px }
+
+    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes clickPulse{0%,100%{opacity:1}50%{opacity:0.8}}
+
+    /* Mantra Footer */
+    #mantra-toggle {
+      position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); z-index: 1;
+      background: rgba(15, 15, 15, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.06);
+      padding: 10px 24px; border-radius: 100px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6); transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); min-width: 280px;
+    }
+    #mantra-toggle:hover { background: rgba(25, 25, 25, 0.9); border-color: rgba(255,255,255,0.15); transform: translateX(-50%) translateY(-2px); }
+    #mantra-text { font-style: italic; color: #777; font-size: 0.85rem; white-space: nowrap; transition: all 0.4s ease; }
+    #mantra-toggle.collapsed { background: transparent; border-color: rgba(255, 215, 0, 0.3); box-shadow: 0 0 20px rgba(255, 215, 0, 0.05); padding: 10px 40px; }
+    #mantra-toggle.collapsed #mantra-text { font-style: normal; font-weight: 600; letter-spacing: 3px; color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+    .fade-out { opacity: 0; transform: translateY(5px); }
+    .fade-in { opacity: 1; transform: translateY(0); }
+    body.zen-mode .response-container, body.zen-mode .input-container, body.zen-mode .top-info, body.zen-mode .svg-container { opacity: 0; pointer-events: none; filter: blur(12px); transition: all 0.6s ease; }
+
+    @media (max-width:500px){ .form-grid{grid-template-columns:1fr} .keys-card{padding:15px} .key-item{flex-direction:column;align-items:flex-start} .key-item .actions{width:100%;display:flex;justify-content:flex-end;margin-top:8px} .box{max-width:92%} .svg-container{width:120px;height:120px} }
+  </style>
+</head>
+<body>
+
+  <div class="ambient-light"><div class="blob blob-1"></div><div class="blob blob-2"></div></div>
+  <div id="particles-js"><canvas class="particles-js-canvas-el"></canvas></div>
+
+  <div class="svg-container">
+    <object data="3D_logo_Dual_Infodose_9.svg" type="image/svg+xml"></object>
+  </div>
+
+  <div class="top-info" id="topInfo">
+    <span id="displayUser">User: —</span> · <span id="displayInfodose">Infodose: —</span>
+  </div>
+
+  <div class="container">
+    <div class="fusion-card closed" id="mainCard">
+      
+      <div class="card-header" id="cardHeader">
+        <div class="avatar-slot" id="avatarTarget" title="Gerenciar Chaves"></div>
+        <div class="text-block">
+          <div class="greeting-row">
+            <span class="txt-thin" id="lblHello">Oi,</span>
+            <span class="txt-heavy" id="lblName">Convidado</span>
+          </div>
+          <div class="brand-dual">DUAL</div>
+        </div>
+        <div class="clock-widget">
+          <div class="time-display" id="clockTime">00:00</div>
+          <span class="status-led">ONLINE</span>
+        </div>
+      </div>
+
+      <div class="small-preview" id="smallPreview" title="Gerenciar Chaves">
+        <div class="mini-avatar" id="smallMiniAvatar"></div>
+        <div class="small-text" id="smallText">Aguardando ativação...</div>
+        <div class="ident-badge" id="smallIdent">--</div>
+      </div>
+
+      <div class="card-body" id="cardBody">
+        <div class="input-wrapper stagger-item">
+          <input type="text" class="cyber-input" id="inputUser" placeholder="Identifique-se..." autocomplete="off">
+        </div>
+
+        <div class="activation-wrap stagger-item">
+          <div class="activation-toggle" onclick="toggleActivation()">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:10px;height:10px;border-radius:99px;background:var(--neon-cyan)"></div>
+              <strong style="letter-spacing:1px;font-size:0.9rem">Ativação ASCII</strong>
+            </div>
+            <div style="margin-left:auto;font-size:0.82rem;color:rgba(255,255,255,0.6)">BASE v1</div>
+          </div>
+          <div id="activationCard" class="activation-card activation-hidden">
+            <div style="display:flex;align-items:flex-start;gap:10px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="mini-avatar" id="actMiniAvatar"></div>
+                <div><div style="font-weight:700">CÉREBRO</div><div style="font-size:0.78rem;opacity:0.6"><span id="actName">User</span></div></div>
+              </div>
+              <div class="activation-badge" id="actBadge" style="margin-left:auto">v:--</div>
+            </div>
+            <pre id="actPre" class="activation-pre">Carregando...</pre>
+            <div class="activation-controls">
+              <button class="trigger-btn" id="copyActBtn">COPIAR</button>
+              <button class="trigger-btn" id="downloadActBtn">PNG</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="stagger-item">
+          <div class="stats-grid">
+            <div class="stat-box"><span class="stat-lbl">LATÊNCIA</span><span class="stat-val">12ms</span></div>
+            <div class="stat-box"><span class="stat-lbl">SEGURANÇA</span><span class="stat-val" id="securityStatus">ABERTO</span></div>
+            <div class="stat-box"><span class="stat-lbl">RITMO</span><span class="stat-val">BETA</span></div>
+          </div>
+          <div class="progress-container" style="margin-top:12px">
+            <div class="bar-meta"><span>CICLO DIÁRIO</span><span id="cyclePercent">0%</span></div>
+            <div class="bar-track"><div class="bar-fill" id="cycleFill"></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="toaster-wrap" id="toasterWrap"></div>
+
+  <div id="keysModal" class="modal-overlay" aria-hidden="true">
+    <div class="keys-card" role="dialog">
+      <div class="keys-header">
+        <div>
+          <div id="keysTitle" style="font-weight:800;font-size:1.1rem;color:var(--neon-cyan)">USER KEYS MANAGER</div>
+          <div style="color:rgba(255,255,255,0.6);font-size:0.85rem">Gerencie suas ESK Keys com segurança local.</div>
+        </div>
+        <button id="closeKeysBtn" class="small-btn">X</button>
+      </div>
+      <div class="key-list" id="keyList"></div>
+      <div class="form-section">
+        <div class="form-grid">
+          <input id="keyNameInput" placeholder="Nome da chave (ex: Principal)">
+          <input id="keyTokenInput" type="password" placeholder="Token / ESK (Opcional)">
+        </div>
+        <div class="form-row">
+          <input id="keyWebhookInput" placeholder="Webhook URL (https://...)" style="flex:1">
+          <button id="testWebhookBtn" class="small-btn" title="Testar Conexão">PING</button>
+        </div>
+        <button id="addKeyBtn" class="small-btn" style="width:100%;margin-top:8px;background:rgba(255,255,255,0.1)">ADICIONAR CHAVE</button>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:space-between;margin-top:15px;border-top:1px solid rgba(255,255,255,0.05);padding-top:12px">
+        <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);display:flex;align-items:center;gap:5px">
+          <i data-lucide="shield-check" style="width:14px"></i> <span id="vaultStatusText">Cofre Aberto</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="lockVaultBtn" class="small-btn danger">BLOQUEAR</button>
+          <button id="exportKeysBtn" class="small-btn">Export</button>
+          <button id="importKeysBtn" class="small-btn">Import</button>
+          <input id="importFileInput" type="file" accept="application/json" style="display:none">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="vaultModal" class="modal-overlay" aria-hidden="true">
+    <div class="keys-card">
+      <div class="vault-icon"><i data-lucide="lock" style="width:24px;height:24px"></i></div>
+      <h3 style="margin:0 0 10px 0;font-weight:800">ACESSO AO COFRE</h3>
+      <p style="margin:0 0 15px 0;font-size:0.9rem;color:rgba(255,255,255,0.6)">Seus dados estão criptografados. Digite a senha para desbloquear.</p>
+      <input type="password" id="vaultPassInput" class="cyber-input" style="text-align:center;margin-bottom:12px" placeholder="Senha...">
+      <div style="display:flex;gap:8px;justify-content:center">
+         <button id="vaultCancelBtn" class="small-btn">Cancelar</button>
+         <button id="vaultUnlockBtn" class="small-btn active-btn">DESBLOQUEAR</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="response-container" id="response">
+    <div class="page initial active">
+      <strong>Clique no ◉ e diga “Oi, Dual”.</strong><br>
+      <em>Sempre único. Sempre seu.</em>
+    </div>
+    <div class="response-controls">
+      <div class="control-buttons">
+        <button class="control-btn copy-button" title="Copiar tudo">
+          <svg viewBox="0 0 24 24" width="20"><circle cx="12" cy="12" r="10"></circle><rect x="6" y="6" width="12" height="12"></rect></svg>
+        </button>
+        <button class="control-btn paste-button" title="Colar">
+          <svg viewBox="0 0 24 24" width="20"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+        </button>
+        <button id="toggleBtn" class="control-btn toggle-button" title="Painel Infodose">
+          <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+        </button>
+        <button id="crystalBtn" class="control-btn" title="Cristalizados">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2l2.9 6.3L21 10l-5 3.6L17.8 21 12 17.7 6.2 21 7 13.6 2 10l6.1-1.7L12 2z"></path></svg>
+        </button>
+        <button id="settingsBtn" class="control-btn" title="Configurações">
+          <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+      </div>
+      <div class="pagination">
+        <button data-action="prev">⟵</button>
+        <span id="pageIndicator">1 / 1</span>
+        <button data-action="next">⟶</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-container">
+    <input id="userInput" type="text" placeholder="Diga: 'oi, Dual'...">
+    <button id="sendBtn" title="Enviar">➤</button>
+    <button id="voiceBtn" title="Falar">
+      <object data="Reset_buttom_Dual-Infodose.svg" type="image/svg+xml" width="36" height="36" style="pointer-events: none;"></object>
+    </button>
+  </div>
+
+  <div id="settingsModal" class="modal">
+    <div class="box">
+      <h3>Configuração Neural</h3>
+      <div class="col">
+        <div class="input-group">
+          <label>OpenRouter API Key (SK)</label>
+          <input type="password" id="apiKeyInput" placeholder="sk-or-..." autocomplete="off">
+        </div>
+        <div class="input-group">
+          <label>Modelo AI</label>
+          <input type="text" id="modelInput" placeholder="ex: meta-llama/llama-4-maverick:free">
+        </div>
+        <div class="settings-actions">
+          <button id="cancelSettings" class="btn btn-sec">Cancelar</button>
+          <button id="saveSettings" class="btn btn-prim">Salvar Conexão</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="togglePanel" class="panel">
+    <div class="box">
+      <h3>Painel Infodose</h3>
+      <div class="row">
+        <div style="flex:1" class="col">
+          <label class="small">Usuário</label>
+          <input type="text" id="userNameInput" placeholder="Seu nome...">
+        </div>
+        <div style="flex:1" class="col">
+          <label class="small">Nome da Infodose</label>
+          <input type="text" id="infodoseNameInput" placeholder="Ex: World System — Alpha">
+        </div>
+      </div>
+      <div style="margin-top:10px" class="col">
+        <label class="small">Treinamento (World System) — Upload / Export</label>
+        <input type="file" id="trainingUpload" accept=".txt">
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button id="importTrainingBtn" class="btn btn-sec">Importar (ler)</button>
+          <button id="exportTrainingBtn" class="btn btn-prim">Exportar treino</button>
+        </div>
+        <div id="trainingFileName" class="small" style="margin-top:6px;color:#9bd">Nenhum arquivo carregado</div>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+        <label class="small" style="flex:1">Infodose ativa</label>
+        <input type="checkbox" id="assistantActiveCheckbox">
+        <label class="small" style="flex:1">Treinamento ativo</label>
+        <input type="checkbox" id="trainingActiveCheckbox">
+      </div>
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button id="savePanelBtn" class="btn btn-prim">Salvar Painel</button>
+        <button id="closePanelBtn" class="btn btn-sec">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="crystalModal" class="modal">
+    <div class="box">
+      <h3>Cristalizados</h3>
+      <div class="row" style="margin-bottom:8px">
+        <button id="exportAllCrystal" class="btn btn-prim">Exportar todos</button>
+        <button id="clearAllCrystal" class="btn btn-sec">Limpar tudo</button>
+      </div>
+      <div class="crystal-list" id="crystalList"></div>
+      <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px">
+        <button id="closeCrystal" class="btn btn-sec">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mantra-toggle">
+    <span id="mantra-text">Do seu jeito. <strong>Sempre</strong> único. <strong>Sempre</strong> seu.</span>
+  </div>
+
+
+  <script>
+    // --- INICIALIZAÇÃO DE LIBS ---
+    lucide.createIcons();
+
+    // =============================================================================
+    // 🧠 LOBO DO SISTEMA (CORE & INJECTION)
+    // Gerencia o ciclo de vida e a capacidade de auto-modificação (Patches)
+    // =============================================================================
+    const SYSTEM = {
+      version: '2.1 Connected',
+      booted: false,
+      
+      // A Ferramenta de Injeção de Código (Runtime Patching)
+      injectDose: (doseName, doseFunction) => {
+        console.log(`%c💉 INJECTING DOSE: ${doseName}`, 'color:#00f2ff; font-weight:bold;');
+        try {
+          // Injeta dependências vitais para o patch acessar
+          doseFunction({ 
+            MEMORY: LOBE_MEMORY, 
+            UI: LOBE_UI, 
+            SYNAPSE: LOBE_SYNAPSE,
+            DOM: els 
+          });
+          LOBE_UI.toast(`Dose [${doseName}] aplicada.`, 'success');
+        } catch (e) {
+          console.error(e);
+          LOBE_UI.toast(`Falha na Dose ${doseName}: ${e.message}`, 'error');
+        }
+      },
+
+      init: () => {
+        if(SYSTEM.booted) return;
+        LOBE_MEMORY.load();
+        
+        // Setup inicial de UI
+        setTimeout(()=>{ els.card.classList.add('active'); els.avatarTgt.classList.add('shown'); }, 100);
+        setInterval(()=>{ els.clock.innerText = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }, 1000);
+        
+        // Setup de Vozes
+        speechSynthesis.onvoiceschanged = () => { window._vozes = speechSynthesis.getVoices(); };
+        
+        // Particles
+        if(window.particlesJS) particlesJS('particles-js',{ particles:{ number:{value:40},color:{value:['#0ff','#f0f']}, shape:{type:'circle'},opacity:{value:0.4},size:{value:2.4}, move:{enable:true,speed:1.5} }, retina_detect:true });
+
+        SYSTEM.booted = true;
+        console.log('DUAL FUSION OS // ONLINE');
+      }
+    };
+
+    // Expõe a injeção globalmente para uso no Console ou Bookmarklets
+    window.injectDose = SYSTEM.injectDose;
+
+
+    // =============================================================================
+    // 💾 LOBO DE MEMÓRIA (STORAGE & CRYPTO)
+    // Gerencia Vault, localStorage e Segurança
+    // =============================================================================
+    const STORAGE_KEY = 'fusion_os_data_v2';
+    const CRYSTAL_KEY = 'di_cristalizados';
+
+    let STATE = { keys: [], user: 'Convidado', isEncrypted: false, encryptedData: null };
+    let SESSION_PASSWORD = null;
+
+    const CRYPTO = {
+      algo: { name: 'AES-GCM', length: 256 },
+      pbkdf2: { name: 'PBKDF2', hash: 'SHA-256', iterations: 100000 },
+      
+      async getKey(password, salt) {
+        const enc = new TextEncoder();
+        const keyMaterial = await window.crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+        return window.crypto.subtle.deriveKey({ ...this.pbkdf2, salt: salt }, keyMaterial, this.algo, false, ["encrypt", "decrypt"]);
+      },
+      async encrypt(data, password) {
+        const salt = window.crypto.getRandomValues(new Uint8Array(16));
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const key = await this.getKey(password, salt);
+        const encoded = new TextEncoder().encode(JSON.stringify(data));
+        const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, encoded);
+        return JSON.stringify({ s: Array.from(salt), iv: Array.from(iv), d: Array.from(new Uint8Array(encrypted)) });
+      },
+      async decrypt(bundleStr, password) {
+        try {
+          const bundle = JSON.parse(bundleStr);
+          const key = await this.getKey(password, new Uint8Array(bundle.s));
+          const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(bundle.iv) }, key, new Uint8Array(bundle.d));
+          return JSON.parse(new TextDecoder().decode(decrypted));
+        } catch(e) { throw new Error("Falha na descriptografia"); }
+      }
+    };
+
+    const LOBE_MEMORY = {
+      // Sincroniza Estado -> LocalStorage
+      save: () => {
+        const payload = { keys: STATE.keys, user: STATE.user };
+        if (SESSION_PASSWORD) {
+          CRYPTO.encrypt(payload, SESSION_PASSWORD).then(enc => {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ isEncrypted: true, data: enc }));
+            STATE.isEncrypted = true; STATE.encryptedData = enc;
+            LOBE_UI.updateSecurityStatus();
+          });
+        } else {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ isEncrypted: false, data: payload }));
+        }
+      },
+
+      // Carrega LocalStorage -> Estado
+      load: async () => {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed.isEncrypted) {
+          STATE.isEncrypted = true; STATE.encryptedData = parsed.data;
+          LOBE_UI.updateSecurityStatus();
+        } else {
+          STATE.keys = parsed.data.keys || [];
+          STATE.user = parsed.data.user || 'Convidado';
+          LOBE_MEMORY.syncBridge();
+          LOBE_UI.renderKeys();
+          LOBE_UI.updateIdentity(STATE.user);
+        }
+      },
+
+      // A Ponte: Garante que as variáveis públicas (di_*) estejam sincronizadas com o estado interno
+      syncBridge: () => {
+        const active = STATE.keys.find(k=>k.active);
+        if(active && active.token) {
+           localStorage.setItem('di_apiKey', active.token);
+           if(typeof LOBE_SYNAPSE !== 'undefined') LOBE_SYNAPSE.config.apiKey = active.token;
+        }
+        if(STATE.user !== 'Convidado') {
+           localStorage.setItem('di_userName', STATE.user);
+           if(typeof LOBE_SYNAPSE !== 'undefined') LOBE_SYNAPSE.config.userName = STATE.user;
+           if(els.userNameInput) els.userNameInput.value = STATE.user;
+        }
+      },
+
+      // Gerenciamento de Chaves
+      addKey: (name, token, webhook) => {
+        if(!name) return LOBE_UI.toast('Nome obrigatório','error');
+        const newKey = { id: Date.now().toString(36), name, token, webhook, active: STATE.keys.length===0 };
+        STATE.keys.push(newKey);
+        if(newKey.active && newKey.token) localStorage.setItem('di_apiKey', newKey.token);
+        LOBE_MEMORY.save(); LOBE_MEMORY.load(); // Reload to refresh UI
+        LOBE_UI.toast('Chave adicionada!', 'success');
+      },
+
+      removeKey: (id) => {
+        if(confirm('Remover chave permanentemente?')){
+          STATE.keys = STATE.keys.filter(k=>k.id!==id);
+          LOBE_MEMORY.save(); LOBE_UI.renderKeys(); LOBE_UI.updateIdentity(STATE.user);
+        }
+      },
+
+      setActiveKey: (id) => {
+        STATE.keys.forEach(k=> k.active = (k.id===id));
+        LOBE_MEMORY.save(); LOBE_MEMORY.syncBridge();
+        LOBE_UI.renderKeys(); LOBE_UI.updateIdentity(STATE.user);
+        LOBE_UI.toast('Chave sincronizada.', 'success');
+      },
+
+      unlockVault: async (pass) => {
+        try {
+          const decrypted = await CRYPTO.decrypt(STATE.encryptedData, pass);
+          SESSION_PASSWORD = pass; STATE.keys = decrypted.keys; STATE.user = decrypted.user;
+          LOBE_MEMORY.syncBridge();
+          return true;
+        } catch(e) { return false; }
+      },
+
+      cristalizar: ({ title, content }) => {
+        const list = JSON.parse(localStorage.getItem(CRYSTAL_KEY) || '[]');
+        list.unshift({ id: Date.now(), title, content, user: STATE.user, infodose: localStorage.getItem('di_infodoseName'), at: new Date().toISOString() });
+        localStorage.setItem(CRYSTAL_KEY, JSON.stringify(list));
+        LOBE_UI.renderCrystals();
+      }
+    };
+
+
+    // =============================================================================
+    // 👁️ LOBO DE INTERFACE (UI, GESTURES & DOM)
+    // =============================================================================
+    const els = {
+      card: document.getElementById('mainCard'), header: document.getElementById('cardHeader'),
+      avatarTgt: document.getElementById('avatarTarget'), input: document.getElementById('inputUser'),
+      lblHello: document.getElementById('lblHello'), lblName: document.getElementById('lblName'),
+      clock: document.getElementById('clockTime'), smallPreview: document.getElementById('smallPreview'),
+      smallMiniAvatar: document.getElementById('smallMiniAvatar'), smallText: document.getElementById('smallText'),
+      smallIdent: document.getElementById('smallIdent'), actCard: document.getElementById('activationCard'),
+      actPre: document.getElementById('actPre'), actName: document.getElementById('actName'),
+      actMiniAvatar: document.getElementById('actMiniAvatar'), actBadge: document.getElementById('actBadge'),
+      securityStatus: document.getElementById('securityStatus'), keysModal: document.getElementById('keysModal'),
+      keyList: document.getElementById('keyList'), keyName: document.getElementById('keyNameInput'),
+      keyToken: document.getElementById('keyTokenInput'), keyWebhook: document.getElementById('keyWebhookInput'),
+      vaultStatusText: document.getElementById('vaultStatusText'), lockVaultBtn: document.getElementById('lockVaultBtn'),
+      vaultModal: document.getElementById('vaultModal'), vaultPass: document.getElementById('vaultPassInput'),
+      response: document.getElementById('response'), pageInd: document.getElementById('pageIndicator'),
+      userNameInput: document.getElementById('userNameInput'), // Settings panel
+    };
+
+    const hashStr = s => { let h=0xdeadbeef; for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),2654435761);} return (h^h>>>16)>>>0; };
+    const createSvg = (id,sz) => `<svg viewBox="0 0 100 100" width="${sz}" height="${sz}"><defs><linearGradient id="g${id}"><stop offset="0%" stop-color="#00f2ff"/><stop offset="100%" stop-color="#bd00ff"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="#080b12" stroke="rgba(255,255,255,0.1)"/><circle cx="50" cy="50" r="20" fill="url(#g${id})" opacity="0.9"/></svg>`;
+    const createMiniSvg = (name,sz=30) => {
+      const s = hashStr(name||'D'); const h1=s%360; const h2=(s*37)%360;
+      return `<svg width="${sz}" height="${sz}" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0a1016"/><circle cx="16" cy="16" r="6" fill="hsl(${h1},90%,50%)"/></svg>`;
+    };
+    const createEl = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; };
+
+    const LOBE_UI = {
+      toast: (txt, type='default') => {
+        const t=document.createElement('div'); t.className=`toaster ${type}`; t.innerText=txt; 
+        document.getElementById('toasterWrap').appendChild(t); 
+        setTimeout(()=>t.classList.add('show'),10); 
+        setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300)},2500); 
+      },
+
+      updateIdentity: (name) => {
+        const safe = name || 'Convidado';
+        els.lblName.innerText = safe; els.input.value = safe;
+        const activeKey = STATE.keys.find(k=>k.active);
+        els.smallIdent.innerText = activeKey ? activeKey.name : '--';
+        els.actBadge.innerText = activeKey ? `key:${activeKey.name}` : 'v:--';
+        els.smallMiniAvatar.innerHTML = createMiniSvg(safe); els.actMiniAvatar.innerHTML = createMiniSvg(safe,36);
+        els.actName.innerText = safe; els.avatarTgt.innerHTML = createSvg('Main',64);
+        
+        const phrases = ["Foco estável.","Ritmo criativo.","Percepção sutil."];
+        els.smallText.innerText = activeKey ? `${activeKey.name} [ATIVO]` : (safe==='Convidado'?'Aguardando...':`${safe} · ${phrases[safe.length%phrases.length]}`);
+        
+        // Activation ASCII
+        const line = `+${'-'.repeat(safe.length+4)}+`;
+        els.actPre.innerText = `${line}\n| ${safe.toUpperCase()} |\n${line}\nID: ${hashStr(safe).toString(16)}`;
+
+        // Chat Info
+        const tiUser = document.getElementById('displayUser');
+        if(tiUser) tiUser.innerText = 'User: ' + safe;
+      },
+
+      renderKeys: () => {
+        els.keyList.innerHTML = '';
+        if(STATE.keys.length===0){ els.keyList.innerHTML = '<div style="color:rgba(255,255,255,0.3);text-align:center;padding:20px">Nenhuma chave armazenada.</div>'; return; }
+        STATE.keys.forEach(k=>{
+          const div = document.createElement('div');
+          div.className = `key-item ${k.active?'active-item':''}`;
+          const typeInfo = k.webhook ? '<span style="color:var(--neon-purple)">WEBHOOK</span>' : 'API KEY';
+          div.innerHTML = `
+            <div class="meta"><div style="font-weight:700;font-size:0.9rem">${k.name?k.name.replace(/[<>]/g,''):''}</div><div style="font-size:0.75rem;color:rgba(255,255,255,0.5)">${typeInfo}</div></div>
+            <div class="actions">
+              ${!k.active ? `<button class="small-btn" onclick="LOBE_MEMORY.setActiveKey('${k.id}')">ATIVAR</button>` : `<span style="font-size:0.7rem;font-weight:700;color:var(--neon-cyan);margin-right:10px">ATIVA</span>`}
+              <button class="small-btn danger" onclick="LOBE_MEMORY.removeKey('${k.id}')"><i data-lucide="trash-2" style="width:14px"></i></button>
+            </div>`;
+          els.keyList.appendChild(div);
+        });
+        lucide.createIcons();
+      },
+
+      updateSecurityStatus: () => {
+        if (SESSION_PASSWORD) {
+          els.securityStatus.innerText = "COFRE DESTRANCADO"; els.securityStatus.style.color = "var(--neon-success)";
+          els.vaultStatusText.innerText = "Cofre Protegido (Destrancado)"; els.lockVaultBtn.innerText = "TRANCAR";
+        } else if (STATE.isEncrypted) {
+          els.securityStatus.innerText = "CRIPTOGRAFADO"; els.securityStatus.style.color = "var(--neon-gold)";
+          els.vaultStatusText.innerText = "Cofre Trancado"; els.lockVaultBtn.innerText = "REDEFINIR";
+        } else {
+          els.securityStatus.innerText = "SEM PROTEÇÃO"; els.securityStatus.style.color = "rgba(255,255,255,0.5)";
+          els.vaultStatusText.innerText = "Cofre Aberto (Sem senha)"; els.lockVaultBtn.innerText = "CRIAR SENHA";
+        }
+      },
+
+      renderCrystals: () => {
+        const list = JSON.parse(localStorage.getItem(CRYSTAL_KEY) || '[]');
+        const el = document.getElementById('crystalList'); 
+        if(!el) return;
+        el.innerHTML = '';
+        if (!list.length) { el.innerHTML = '<div class="small">Vazio.</div>'; return; }
+        list.forEach(it => {
+          const row = createEl('div','crystal-item');
+          const left = createEl('div','','<strong>'+it.title+'</strong><div class="small">'+(it.infodose||'')+'</div><div style="margin-top:4px;font-size:0.8em">'+it.content.slice(0,100)+'...</div>');
+          const actions = createEl('div','actions');
+          const copyBtn = createEl('button','btn btn-sec','Copy'); copyBtn.onclick=()=>navigator.clipboard.writeText(it.content);
+          const delBtn = createEl('button','btn btn-sec','Del'); delBtn.onclick=()=>{ 
+              const arr=JSON.parse(localStorage.getItem(CRYSTAL_KEY)||'[]'); 
+              localStorage.setItem(CRYSTAL_KEY, JSON.stringify(arr.filter(x=>x.id!==it.id))); LOBE_UI.renderCrystals(); 
+          };
+          actions.append(copyBtn, delBtn); row.append(left, actions); el.appendChild(row);
+        });
+      },
+
+      // Paginação de resposta
+      renderPaginatedResponse: (text) => {
+        speechSynthesis.cancel();
+        LOBE_SYNAPSE.control.autoAdvance = true;
+        const respEl = els.response;
+        respEl.querySelectorAll('.page:not(.initial)').forEach(p=>p.remove());
+        LOBE_SYNAPSE.control.pages = [];
+        
+        // Helper de split (simples)
+        let paras = text.split(/\n\s*\n/).filter(p=>p.trim());
+        if (paras.length % 3 !== 0 && paras.length > 1) { 
+           // Tenta agrupar se não for divisível perfeito
+        }
+        const groups = [];
+        for (let i=0;i<paras.length;i+=3) groups.push(paras.slice(i,i+3));
+        if(groups.length===0) groups.push([text]);
+
+        const titles = ['🎁 Recompensa','👁️ Exploração','⚡ Antecipação'];
+        const controls = respEl.querySelector('.response-controls');
+
+        groups.forEach((tris, gi) => {
+          const page = createEl('div', gi===0?'page active':'page');
+          tris.forEach((body, j) => {
+             const safeTitle = titles[j] || 'Insight';
+             const cls = j===0?'intro': j===1?'middle':'ending';
+             const b = createEl('div','response-block '+cls,`<h3>${safeTitle}</h3><p>${body}</p>`);
+             
+             // Botão Cristalizar
+             const meta = createEl('div','meta');
+             const crystalBtn = createEl('button','crystal-btn','✶');
+             crystalBtn.title = 'Cristalizar';
+             crystalBtn.onclick = (ev) => {
+               ev.stopPropagation(); 
+               LOBE_MEMORY.cristalizar({ title: safeTitle, content: body });
+               crystalBtn.innerText = '✓'; setTimeout(()=> crystalBtn.innerText = '✶', 1200);
+             };
+             meta.appendChild(crystalBtn); b.appendChild(meta);
+
+             // Click to expand/speak
+             b.addEventListener('click', () => {
+                if(b.classList.contains('expanded')) return; 
+                if(b.dataset.spoken) {
+                   b.classList.add('expanded');
+                   LOBE_SYNAPSE.triggerDeepDive(safeTitle, body);
+                } else {
+                   speechSynthesis.cancel(); LOBE_SYNAPSE.speak(body); 
+                   b.classList.add('clicked'); b.dataset.spoken = 'true';
+                }
+             });
+             page.appendChild(b);
+          });
+          page.appendChild(createEl('p','footer-text',`<em>Do seu jeito. <strong>Sempre</strong> único.</em>`));
+          respEl.insertBefore(page, controls);
+          LOBE_SYNAPSE.control.pages.push(page);
+        });
+        
+        LOBE_SYNAPSE.control.currentPage = 0; 
+        els.pageInd.textContent = `1 / ${LOBE_SYNAPSE.control.pages.length}`;
+        LOBE_SYNAPSE.speakPage(0);
+      }
+    };
+
+
+    // =============================================================================
+    // 🔌 LOBO SINÁPTICO (CONEXÃO & AI)
+    // =============================================================================
+    const LOBE_SYNAPSE = {
+      config: {
+        endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+        apiKey: localStorage.getItem('di_apiKey') || '',
+        model: localStorage.getItem('di_modelName') || 'meta-llama/llama-4-maverick:free',
+        userName: localStorage.getItem('di_userName') || '',
+        training: localStorage.getItem('di_trainingText') || '',
+        assistantEnabled: localStorage.getItem('di_assistantEnabled') === '1',
+        trainingActive: localStorage.getItem('di_trainingActive') !== '0'
+      },
+      control: {
+        conversation: [],
+        pages: [],
+        currentPage: 0,
+        autoAdvance: true
+      },
+
+      speak: (txt, onend) => {
+        if (!txt) { if (onend) onend(); return; }
+        const u = new SpeechSynthesisUtterance(txt);
+        u.lang = 'pt-BR'; u.rate = 0.99; u.pitch = 1.1;
+        if (window._vozes) u.voice = window._vozes.find(v=>v.lang==='pt-BR') || window._vozes[0];
+        if (onend) u.onend = onend;
+        speechSynthesis.speak(u);
+      },
+
+      speakPage: (i) => {
+        const page = LOBE_SYNAPSE.control.pages[i]; if (!page) return;
+        const body = Array.from(page.querySelectorAll('.response-block p')).map(p=>p.innerText).join(' ');
+        LOBE_SYNAPSE.speak(body, () => {
+          if (!LOBE_SYNAPSE.control.autoAdvance) return;
+          if (i < LOBE_SYNAPSE.control.pages.length - 1) { 
+             LOBE_SYNAPSE.changePage(1); LOBE_SYNAPSE.speakPage(i+1); 
+          }
+        });
+      },
+
+      changePage: (offset) => {
+        const cp = LOBE_SYNAPSE.control.currentPage;
+        const np = cp + offset;
+        const pgs = LOBE_SYNAPSE.control.pages;
+        if (np<0 || np>=pgs.length) return;
+        pgs[cp].classList.remove('active'); pgs[np].classList.add('active');
+        LOBE_SYNAPSE.control.currentPage = np;
+        els.pageInd.textContent = `${np+1} / ${pgs.length}`;
+      },
+
+      sendMessage: async () => {
+        const raw = document.getElementById('userInput').value.trim();
+        if(!raw) return;
+        document.getElementById('userInput').value = '';
+        
+        // Setup inicial
+        els.response.querySelector('.page.initial')?.remove();
+        speechSynthesis.cancel();
+        
+        // Triggers
+        if (raw.toLowerCase().includes('oi dual')) {
+           LOBE_SYNAPSE.config.assistantEnabled = true;
+           localStorage.setItem('di_assistantEnabled','1');
+           LOBE_UI.toast('Modo Assistente Ativado');
+        }
+
+        LOBE_SYNAPSE.control.conversation.push({ role:'user', content: raw });
+        LOBE_SYNAPSE.callAI();
+      },
+
+      triggerDeepDive: (contextTitle, contextBody) => {
+        if (!LOBE_SYNAPSE.config.assistantEnabled) {
+             LOBE_SYNAPSE.config.assistantEnabled = true; 
+             localStorage.setItem('di_assistantEnabled','1');
+        }
+        LOBE_UI.toast('Expandindo Pulso...'); LOBE_SYNAPSE.speak('Expandindo...');
+        LOBE_SYNAPSE.control.conversation.push({ role:'user', content: `Sobre "${contextTitle}": ${contextBody}. Aprofunde.` });
+        LOBE_SYNAPSE.callAI();
+      },
+
+      callAI: async () => {
+        // Refresh configs
+        LOBE_SYNAPSE.config.apiKey = localStorage.getItem('di_apiKey');
+        LOBE_SYNAPSE.config.model = localStorage.getItem('di_modelName') || LOBE_SYNAPSE.config.model;
+        
+        if (!LOBE_SYNAPSE.config.apiKey) return alert('Chave API ausente no Vault.');
+
+        // Monta Mensagens
+        const msgs = [];
+        if (LOBE_SYNAPSE.config.assistantEnabled && LOBE_SYNAPSE.config.trainingActive && LOBE_SYNAPSE.config.training) {
+          msgs.push({ role:'system', content: LOBE_SYNAPSE.config.training });
+        }
+        LOBE_SYNAPSE.control.conversation.forEach(m => { if(m.role!=='system') msgs.push(m); });
+
+        // Placeholder loading
+        const controls = els.response.querySelector('.response-controls');
+        els.response.querySelectorAll('.page:not(.initial)').forEach(p=>p.remove());
+        const loadingPage = createEl('div','page active', `<p class="footer-text">Sintonizando Frequência...</p>`);
+        els.response.insertBefore(loadingPage, controls);
+        LOBE_SYNAPSE.control.pages = [loadingPage];
+
+        try {
+          const resp = await fetch(LOBE_SYNAPSE.config.endpoint, {
+            method:'POST', headers:{ 'Authorization':`Bearer ${LOBE_SYNAPSE.config.apiKey}`, 'Content-Type':'application/json' },
+            body: JSON.stringify({ model: LOBE_SYNAPSE.config.model, messages: msgs, temperature: 0.2 })
+          });
+          const data = await resp.json();
+          const answer = data.choices?.[0]?.message?.content || 'Sem sinal.';
+          LOBE_SYNAPSE.control.conversation.push({ role:'assistant', content: answer });
+          LOBE_UI.renderPaginatedResponse(answer);
+        } catch(e) {
+          LOBE_UI.renderPaginatedResponse(`Erro de conexão: ${e.message}`);
+        }
+      }
+    };
+
+
+    // =============================================================================
+    // 🎮 GESTÃO DE EVENTOS (WIRING)
+    // Conecta o HTML aos Lobos
+    // =============================================================================
+    
+    // 1. Eventos de UI Gerais
+    els.input.addEventListener('input', (e)=>{ 
+      STATE.user=e.target.value; 
+      LOBE_UI.updateIdentity(e.target.value); 
+      LOBE_MEMORY.save(); // Salva user mas não encrypta full se nao tiver senha
+    });
+    
+    // 2. Chaves & Vault
+    document.getElementById('addKeyBtn').addEventListener('click', () => {
+      LOBE_MEMORY.addKey(els.keyName.value.trim(), els.keyToken.value.trim(), els.keyWebhook.value.trim());
+      els.keyName.value=''; els.keyToken.value='';
+    });
+    els.lockVaultBtn.addEventListener('click', () => {
+      if(!SESSION_PASSWORD && !STATE.isEncrypted) {
+        const p = prompt('Criar senha do cofre:');
+        if(p) { SESSION_PASSWORD=p; LOBE_MEMORY.save(); LOBE_UI.updateSecurityStatus(); LOBE_UI.toast('Trancado.','success'); }
+      } else {
+        SESSION_PASSWORD=null; els.keysModal.style.display='none'; LOBE_UI.toast('Trancado.','success');
+      }
+      LOBE_UI.updateSecurityStatus();
+    });
+    document.getElementById('vaultUnlockBtn').addEventListener('click', async () => {
+      if(await LOBE_MEMORY.unlockVault(els.vaultPass.value)) {
+         els.vaultModal.style.display='none'; els.keysModal.style.display='flex'; els.vaultPass.value='';
+         LOBE_UI.renderKeys(); LOBE_UI.updateSecurityStatus();
+      } else { LOBE_UI.toast('Senha inválida','error'); }
+    });
+    els.avatarTgt.addEventListener('click', ()=>{ 
+       if(!STATE.isEncrypted || SESSION_PASSWORD) els.keysModal.style.display='flex';
+       else els.vaultModal.style.display='flex';
+    });
+    
+    // 3. Chat Controls
+    document.getElementById('sendBtn').addEventListener('click', LOBE_SYNAPSE.sendMessage);
+    document.getElementById('userInput').addEventListener('keypress', e => { if (e.key==='Enter') LOBE_SYNAPSE.sendMessage(); });
+    document.querySelector('[data-action="prev"]').addEventListener('click', () => LOBE_SYNAPSE.changePage(-1));
+    document.querySelector('[data-action="next"]').addEventListener('click', () => LOBE_SYNAPSE.changePage(1));
+    
+    // 4. Panels & Settings
+    document.getElementById('settingsBtn').addEventListener('click', () => document.getElementById('settingsModal').classList.add('active'));
+    document.getElementById('saveSettings').addEventListener('click', () => {
+      localStorage.setItem('di_apiKey', document.getElementById('apiKeyInput').value);
+      localStorage.setItem('di_modelName', document.getElementById('modelInput').value);
+      document.getElementById('settingsModal').classList.remove('active');
+    });
+    document.getElementById('cancelSettings').addEventListener('click', ()=>document.getElementById('settingsModal').classList.remove('active'));
+    
+    document.getElementById('toggleBtn').addEventListener('click', ()=> document.getElementById('togglePanel').classList.add('active'));
+    document.getElementById('savePanelBtn').addEventListener('click', ()=> {
+       const u = els.userNameInput.value;
+       STATE.user = u; LOBE_UI.updateIdentity(u); LOBE_MEMORY.save();
+       localStorage.setItem('di_assistantEnabled', document.getElementById('assistantActiveCheckbox').checked?'1':'0');
+       localStorage.setItem('di_trainingActive', document.getElementById('trainingActiveCheckbox').checked?'1':'0');
+       document.getElementById('togglePanel').classList.remove('active');
+       // Refresh config do lobo
+       LOBE_SYNAPSE.config.assistantEnabled = document.getElementById('assistantActiveCheckbox').checked;
+    });
+    document.getElementById('closePanelBtn').addEventListener('click', ()=>document.getElementById('togglePanel').classList.remove('active'));
+
+    document.getElementById('crystalBtn').addEventListener('click', ()=> { LOBE_UI.renderCrystals(); document.getElementById('crystalModal').classList.add('active'); });
+    document.getElementById('closeCrystal').addEventListener('click', ()=>document.getElementById('crystalModal').classList.remove('active'));
+
+    // 5. Drag & Drop Orb Logic (Simplificada)
+    let dSt = { isOrb:false, isHud:false, startX:0, startY:0, timer:null };
+    els.card.addEventListener('pointerdown', (e) => {
+      if(['INPUT','BUTTON'].includes(e.target.tagName) || e.target.closest('.keys-card')) return;
+      if(!dSt.isOrb && !dSt.isHud && !els.header.contains(e.target)) return;
+      dSt.startX=e.clientX; dSt.startY=e.clientY;
+      dSt.timer = setTimeout(() => {
+        if(!dSt.isHud) {
+           els.card.classList.add('orb','closed'); els.card.classList.remove('content-visible');
+           els.card.style.left=(e.clientX-34)+'px'; els.card.style.top=(e.clientY-34)+'px';
+           dSt.isOrb=true;
+        }
+      }, 600);
+      if(dSt.isOrb) els.card.setPointerCapture(e.pointerId); 
+    });
+    document.addEventListener('pointermove', (e) => {
+       if(dSt.isOrb && dSt.timer) {
+          els.card.style.left=(e.clientX-34)+'px'; els.card.style.top=(e.clientY-34)+'px';
+       }
+    });
+    document.addEventListener('pointerup', (e) => {
+       clearTimeout(dSt.timer);
+       if(dSt.isOrb) {
+          if(e.clientY < 80) { // Transmute to HUD
+             els.card.className = 'fusion-card hud active'; dSt.isHud=true; dSt.isOrb=false;
+             els.card.style.left=''; els.card.style.top='';
+          }
+       } else if (Math.hypot(e.clientX-dSt.startX, e.clientY-dSt.startY)<10 && !dSt.isHud) {
+          // Toggle Open/Close
+          if(els.card.classList.contains('closed')) { els.card.classList.remove('closed'); els.card.classList.add('content-visible'); }
+          else { els.card.classList.add('closed'); els.card.classList.remove('content-visible'); }
+       }
+    });
+
+    // Mantra
+    document.getElementById('mantra-toggle').addEventListener('click', function() {
+      this.classList.toggle('collapsed'); document.body.classList.toggle('zen-mode');
+    });
+    
+    // Globais para compatibilidade antiga
+    window.toggleActivation = () => { els.actCard.classList.toggle('activation-hidden'); els.actCard.classList.toggle('activation-open'); };
+    window.setActiveKey = LOBE_MEMORY.setActiveKey;
+    window.removeKey = LOBE_MEMORY.removeKey;
+
+    // --- BOOT ---
+    SYSTEM.init();
+
+</script>
+
+</body>
+</html>
