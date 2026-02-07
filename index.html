@@ -4,13 +4,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Dual.Infodose — Smart HUD</title>
- <!-- iOS Support -->
+
+<!-- iOS Support -->
 
 <link rel="apple-touch-icon" href="./icon-192.png">
 
 <!-- Manifest -->
 <link rel="manifest" href="./manifest.json">
  
+
 <style>
   :root {
     --bg-blur: rgba(10, 12, 20, 0.75);
@@ -23,14 +25,14 @@
   }
 
   html, body { 
-    height: 100%; margin: 0; padding: 0; 
-    background: #000; color: var(--text); 
+    height: 100%; margin: 0; padding: 0; color: var(--text); 
+    background:rgba(0,0,0,0);
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    overflow: hidden;
+    overflow: auto;
   }
   
-  .wrap { width: 100%;min-height:100vh; height: 100vh; display: flex; flex-direction: column; }
-  iframe#frame { width: 100%; height: 100%; min-height:100vh; border: 0; transition: opacity .3s; }
+  .wrap { width: 100%; min-height: 100vh; height: 100%;display: flex; flex-direction: column; }
+  iframe#frame { width: 100%; min-height: 100vh;height: 100%; border: 0; border-radius:8px;transition: opacity .3s; }
 
   /* Barra de Símbolos */
   .symbol-bar {
@@ -76,7 +78,7 @@
 
   /* Botões */
   .symbol-button {
-    width: 33px; height: 33px; border-radius: 12px;
+    width: 28px; height: 28px; border-radius: 12px;
     border: 1px solid var(--border);
     display: flex; align-items: center; justify-content: center;
     background: var(--card-bg);
@@ -297,13 +299,11 @@
     localStorage.setItem('dual_pos', JSON.stringify({x, y}));
   }
 
-function loadUrl(btn){
+  function loadUrl(btn){
   const url = btn.dataset.url || 'about:blank';
   frame.src = url;
   localStorage.setItem('dual_last', url);
   }
-
-  
 
   function toggleEdit(on){
     editMode = on;
