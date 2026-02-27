@@ -314,10 +314,12 @@
   }
 
   function loadUrl(btn){
+      if (!btn.dataset.url) return; // segurança
   const url = btn.dataset.url || 'about:blank';
   frame.src = url;
   localStorage.setItem('dual_last', url);
   }
+  
 
   function toggleEdit(on){
     editMode = on;
